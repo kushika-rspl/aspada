@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "MEMP-CKIN-.MM.-.YYYY.-.######",
+ "creation": "2025-02-14 10:15:22.344651",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "shift",
+  "log_type",
+  "column_break_zqxb",
+  "time",
+  "attendance_marked",
+  "check_in",
+  "check_out"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee Master Record",
+   "reqd": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Link",
+   "label": "Shift",
+   "options": "Shift Type"
+  },
+  {
+   "fieldname": "log_type",
+   "fieldtype": "Select",
+   "label": "Log Type",
+   "options": "\nIN\nOUT"
+  },
+  {
+   "fieldname": "column_break_zqxb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "attendance_marked",
+   "fieldtype": "Link",
+   "label": "Attendance Marked",
+   "options": "Attendance"
+  },
+  {
+   "default": "0",
+   "fieldname": "check_in",
+   "fieldtype": "Check",
+   "label": "Check In"
+  },
+  {
+   "default": "0",
+   "fieldname": "check_out",
+   "fieldtype": "Check",
+   "label": "Check out"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-03-10 18:14:11.457291",
+ "modified_by": "Administrator",
+ "module": "Aspadha Cutomization",
+ "name": "Master Employee Checkin",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class SigningTermsandConditions(Document):
+class SigningAgreement(Document):
 	pass

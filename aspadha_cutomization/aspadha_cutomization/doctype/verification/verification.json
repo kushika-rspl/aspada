@@ -8,7 +8,12 @@
  "field_order": [
   "employee",
   "employee_name",
-  "report"
+  "report",
+  "attachment_1",
+  "attachment_2",
+  "attachment_3",
+  "attachment_4",
+  "attachment_5"
  ],
  "fields": [
   {
@@ -28,11 +33,36 @@
    "fieldname": "report",
    "fieldtype": "Attach",
    "label": "Report"
+  },
+  {
+   "fieldname": "attachment_1",
+   "fieldtype": "Attach",
+   "label": "Attachment 1"
+  },
+  {
+   "fieldname": "attachment_2",
+   "fieldtype": "Attach",
+   "label": "Attachment 2"
+  },
+  {
+   "fieldname": "attachment_3",
+   "fieldtype": "Attach",
+   "label": "Attachment 3"
+  },
+  {
+   "fieldname": "attachment_4",
+   "fieldtype": "Attach",
+   "label": "Attachment 4"
+  },
+  {
+   "fieldname": "attachment_5",
+   "fieldtype": "Attach",
+   "label": "Attachment 5"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-10 18:13:09.014018",
+ "modified": "2025-03-12 15:07:27.316877",
  "modified_by": "Administrator",
  "module": "Aspadha Cutomization",
  "name": "Verification",

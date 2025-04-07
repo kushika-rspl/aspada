@@ -9,6 +9,7 @@
   "employee",
   "employee_name",
   "terms",
+  "authorized_signatory",
   "signature"
  ],
  "fields": [
@@ -36,11 +37,16 @@
    "fieldname": "terms",
    "fieldtype": "Long Text",
    "label": "Terms"
+  },
+  {
+   "fieldname": "authorized_signatory",
+   "fieldtype": "Signature",
+   "label": "Authorized Signatory "
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-12 14:16:00.676047",
+ "modified": "2025-03-19 15:06:31.596410",
  "modified_by": "Administrator",
  "module": "Aspadha Cutomization",
  "name": "Signing Agreement",

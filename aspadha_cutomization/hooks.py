@@ -144,6 +144,12 @@ app_license = "mit"
 # 		"on_trash": "method"
 # 	}
 # }
+doc_events = {
+    "Salary Slip": {
+        "validate": "aspadha_cutomization.aspadha_cutomization.customizations.salary_slip_days.set_custom_days_in_month"
+    }
+}
+
 
 # Scheduled Tasks
 # ---------------

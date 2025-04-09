@@ -38,6 +38,7 @@ def mark_attendance(employee, current_date, log_note="Site/Travel Log"):
     attendance.custom_log_reference = log_note  # Optional: you can remove or rename this if not using
     attendance.insert(ignore_permissions=True)
     frappe.db.commit()
+    frappe.msgprint(f"Attendance marked for {employee} on {current_date} due to {log_note}")
 
 def calculate_ot(start_time, end_time, selected_month, selected_year, is_travel=False, employee=None, mark_att=False):
     total_ot = 0

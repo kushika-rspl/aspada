@@ -13,6 +13,51 @@ from frappe.utils import getdate, get_datetime, add_days, time_diff_in_hours
 
 SHIFT_HOURS = 9  
 
+import calendar
+
+def get_employee_overtime(employee, month, year):
+    total_overtime = 0
+
+    # Get the last valid day of the month
+    last_day_of_month = calendar.monthrange(int(year), int(month))[1]  # Returns (weekday, last_day)
+
+    # Fetch all check-in/check-out logs for the employee
+    checkins = frappe.get_all(
+        "Employee Checkin",
+        filters={
+            "employee": employee,
+            "time": ["between", (f"{year}-{month}-01", f"{year}-{month}-{last_day_of_month}")]
+        },
+        fields=["time", "log_type", "custom_site_in", "custom_site_out", "custom_travelling_in", "custom_travelling_out"],
+        order_by="time asc"
+    )
+
+    paired_logs = []
+    in_time = None
+
+    # Pair IN/OUT logs
+    for log in checkins:
+        if log["log_type"] == "IN":
+            in_time = log["time"]
+        elif log["log_type"] == "OUT" and in_time:
+            paired_logs.append((in_time, log["time"]))
+            in_time = None  # Reset after pairing
+
+    # Calculate Normal Check-in/Check-out OT
+    for in_time, out_time in paired_logs:
+        total_overtime += calculate_ot(in_time, out_time, month, year, is_travel=False)
+
+    # Site OT Calculation
+    for data in checkins:
+        if data.get("custom_site_in") and data.get("custom_site_out"):
+            total_overtime += calculate_ot(data["custom_site_in"], data["custom_site_out"], month, year, is_travel=False)
+
+        # Travel OT Calculation (half OT)
+        if data.get("custom_travelling_in") and data.get("custom_travelling_out"):
+            total_overtime += calculate_ot(data["custom_travelling_in"], data["custom_travelling_out"], month, year, is_travel=True)
+
+    return total_overtime
+
 def calculate_ot(start_time, end_time, selected_month, selected_year, is_travel=False):
     total_ot = 0
     start_time = get_datetime(start_time)
@@ -55,45 +100,45 @@ def calculate_ot(start_time, end_time, selected_month, selected_year, is_travel=
 
     return total_ot
 
-def get_employee_overtime(employee, month, year):
-    total_overtime = 0
+# def get_employee_overtime(employee, month, year):
+#     total_overtime = 0
 
-    # Fetch all check-in/check-out logs for the employee
-    checkins = frappe.get_all(
-        "Employee Checkin",
-        filters={
-            "employee": employee,
-            "time": ["between", (f"{year}-{month}-01", f"{year}-{month}-31")]
-        },
-        fields=["time", "log_type", "custom_site_in", "custom_site_out", "custom_travelling_in", "custom_travelling_out"],
-        order_by="time asc"
-    )
+#     # Fetch all check-in/check-out logs for the employee
+#     checkins = frappe.get_all(
+#         "Employee Checkin",
+#         filters={
+#             "employee": employee,
+#             "time": ["between", (f"{year}-{month}-01", f"{year}-{month}-31")]
+#         },
+#         fields=["time", "log_type", "custom_site_in", "custom_site_out", "custom_travelling_in", "custom_travelling_out"],
+#         order_by="time asc"
+#     )
 
-    paired_logs = []
-    in_time = None
+#     paired_logs = []
+#     in_time = None
 
-    # Pair IN/OUT logs
-    for log in checkins:
-        if log["log_type"] == "IN":
-            in_time = log["time"]
-        elif log["log_type"] == "OUT" and in_time:
-            paired_logs.append((in_time, log["time"]))
-            in_time = None  # Reset after pairing
+#     # Pair IN/OUT logs
+#     for log in checkins:
+#         if log["log_type"] == "IN":
+#             in_time = log["time"]
+#         elif log["log_type"] == "OUT" and in_time:
+#             paired_logs.append((in_time, log["time"]))
+#             in_time = None  # Reset after pairing
 
-    # Calculate Normal Check-in/Check-out OT
-    for in_time, out_time in paired_logs:
-        total_overtime += calculate_ot(in_time, out_time, month, year, is_travel=False)
+#     # Calculate Normal Check-in/Check-out OT
+#     for in_time, out_time in paired_logs:
+#         total_overtime += calculate_ot(in_time, out_time, month, year, is_travel=False)
 
-    # Site OT Calculation
-    for data in checkins:
-        if data.get("custom_site_in") and data.get("custom_site_out"):
-            total_overtime += calculate_ot(data["custom_site_in"], data["custom_site_out"], month, year, is_travel=False)
+#     # Site OT Calculation
+#     for data in checkins:
+#         if data.get("custom_site_in") and data.get("custom_site_out"):
+#             total_overtime += calculate_ot(data["custom_site_in"], data["custom_site_out"], month, year, is_travel=False)
 
-        # Travel OT Calculation (half OT)
-        if data.get("custom_travelling_in") and data.get("custom_travelling_out"):
-            total_overtime += calculate_ot(data["custom_travelling_in"], data["custom_travelling_out"], month, year, is_travel=True)
+#         # Travel OT Calculation (half OT)
+#         if data.get("custom_travelling_in") and data.get("custom_travelling_out"):
+#             total_overtime += calculate_ot(data["custom_travelling_in"], data["custom_travelling_out"], month, year, is_travel=True)
 
-    return total_overtime
+#     return total_overtime
 
 @frappe.whitelist()
 def calculate_monthly_ot(employee, month, year):

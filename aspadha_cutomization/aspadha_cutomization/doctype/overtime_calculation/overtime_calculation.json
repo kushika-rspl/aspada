@@ -1,14 +1,15 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-03-12 16:01:30.979928",
+ "creation": "2025-04-20 00:38:16.011032",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "employee",
   "month",
   "year",
-  "total_ot_hours"
+  "total_ot_hours",
+  "overtime_detail"
  ],
  "fields": [
   {
@@ -32,11 +33,17 @@
    "fieldname": "total_ot_hours",
    "fieldtype": "Float",
    "label": "Total OT hours"
+  },
+  {
+   "fieldname": "overtime_detail",
+   "fieldtype": "Table",
+   "label": "Overtime Detail",
+   "options": "Overtime Detail"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-12 16:04:02.884217",
+ "modified": "2025-04-27 19:41:46.137464",
  "modified_by": "Administrator",
  "module": "Aspadha Cutomization",
  "name": "Overtime Calculation",
@@ -55,6 +62,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

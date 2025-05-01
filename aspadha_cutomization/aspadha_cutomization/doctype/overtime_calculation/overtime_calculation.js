@@ -1,11 +1,6 @@
 // Copyright (c) 2025, kushika and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Overtime Calculation", {
-// 	refresh(frm) {
-
-// 	},
-// });
 frappe.ui.form.on('Overtime Calculation', {
     employee: function(frm) {
         calculate_ot(frm);
@@ -29,9 +24,28 @@ function calculate_ot(frm) {
             },
             callback: function(response) {
                 if (response.message) {
-                    frm.set_value("total_ot_hours", response.message);
+                    frm.set_value("total_ot_hours", response.message.total_ot);
+
+                    // Use correct child table fieldname
+                    frm.clear_table("overtime_detail");
+
+                    if (Array.isArray(response.message.breakdown)) {
+                        response.message.breakdown.forEach(row => {
+                            const child = frm.add_child("overtime_detail");
+                            child.date = row.date;
+                            child.ot_hours = row.ot_hours;
+                        });
+                    }
+
                     frm.refresh_field("total_ot_hours");
+                    frm.refresh_field("overtime_detail");
+                } else {
+                    frappe.msgprint("No OT data returned.");
                 }
+            },
+            error: function(err) {
+                console.error("OT Calculation failed", err);
+                frappe.msgprint("There was an error while calculating OT.");
             }
         });
     }

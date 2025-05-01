@@ -1,81 +1,77 @@
-# Copyright (c) 2025, kushika and contributors
-# For license information, please see license.txt
+# # Copyright (c) 2025, kushika and contributors
+# # For license information, please see license.txt
 
-# from frappe.model.document import Document
-# import frappe
-# from frappe.utils import getdate, get_datetime, add_days, time_diff_in_hours
-# import calendar
+import frappe
+from frappe.model.document import Document
+from frappe.utils import getdate, get_datetime, add_days, time_diff_in_hours
+import calendar
+from datetime import datetime
+from collections import defaultdict
+
+
+class OvertimeCalculation(Document):
+	pass
 
 # SHIFT_HOURS = 9  
 
-# class OvertimeCalculation(Document):
-#     pass
+def get_shift_hours(employee, date):
+    shift_assignment = frappe.db.sql("""
+        SELECT shift_type
+        FROM `tabShift Assignment`
+        WHERE employee = %s
+        AND start_date <= %s
+        AND (end_date >= %s OR end_date IS NULL)
+        ORDER BY start_date DESC
+        LIMIT 1
+    """, (employee, date, date), as_dict=True)
 
-# def get_shift_hours(employee, current_date):
-#     shift_type = frappe.db.get_value(
-#         "Shift Assignment",
-#         filters={
-#             "employee": employee,
-#             "start_date": ["<=", current_date],
-#             "end_date": [">=", current_date],
-#         },
-#         fieldname="shift_type"
-#     )
+    if not shift_assignment:
+        frappe.throw(f"❌ No shift assignment found for Employee <b>{employee}</b> on <b>{date}</b>.")
 
-#     if shift_type:
-#         return frappe.db.get_value("Shift Type", shift_type, "duration") or SHIFT_HOURS
-#     return SHIFT_HOURS
+    shift_type = shift_assignment[0].shift_type
 
-# def mark_attendance(employee, current_date, log_note="Site/Travel Log"):
-#     if frappe.db.exists("Attendance", {"employee": employee, "attendance_date": current_date}):
-#         return  # Already marked
+    shift = frappe.db.get_value("Shift Type", shift_type, ["start_time", "end_time"], as_dict=True)
 
-#     attendance = frappe.new_doc("Attendance")
-#     attendance.employee = employee
-#     attendance.attendance_date = current_date
-#     attendance.status = "Present"
-#     attendance.docstatus = 1
-#     attendance.custom_log_reference = log_note  # Optional: you can remove or rename this if not using
-#     attendance.insert(ignore_permissions=True)
-#     frappe.db.commit()
-#     frappe.msgprint(f"Attendance marked for {employee} on {current_date} due to {log_note}")
+    if not shift or not shift.start_time or not shift.end_time:
+        frappe.throw(
+            f"❌ Shift Type <b>{shift_type}</b> for Employee <b>{employee}</b> on <b>{date}</b> is missing <code>start_time</code> or <code>end_time</code>."
+        )
 
-# def calculate_ot(start_time, end_time, selected_month, selected_year, is_travel=False, employee=None, mark_att=False):
-#     total_ot = 0
-#     start_time = get_datetime(start_time)
-#     end_time = get_datetime(end_time)
+    # Convert times to datetime objects for calculation
+    fmt = "%H:%M:%S"
+    try:
+        start_dt = datetime.strptime(str(shift.start_time), fmt)
+        end_dt = datetime.strptime(str(shift.end_time), fmt)
+    except Exception as e:
+        frappe.throw(
+            f"❌ Failed to parse start/end time for Shift Type <b>{shift_type}</b>: {e}"
+        )
 
-#     current_date = getdate(start_time)
+    # Handle overnight shifts (e.g. 22:00 to 06:00)
+    if end_dt <= start_dt:
+        end_dt = end_dt.replace(day=start_dt.day + 1)
 
-#     while current_date <= getdate(end_time):
-#         weekday = current_date.weekday() 
-#         next_day = add_days(current_date, 1)
+    duration_hours = (end_dt - start_dt).total_seconds() / 3600
+    duration_hours = round(duration_hours, 2)
 
-#         if current_date.month != int(selected_month) or current_date.year != int(selected_year):
-#             current_date = next_day
-#             continue
+    # Throw shift info to confirm what was picked
+    # frappe.msgprint(
+    #     f"✅ Shift selected for <b>{employee}</b> on <b>{date}</b>:<br>"
+    #     f"Shift Type: <b>{shift_type}</b><br>"
+    #     f"Start Time: <code>{shift.start_time}</code><br>"
+    #     f"End Time: <code>{shift.end_time}</code><br>"
+    #     f"Duration Calculated: <b>{duration_hours} hours</b>"
+    # )
 
-#         shift_hours = get_shift_hours(employee, current_date)
 
-#         day_start = max(start_time, get_datetime(f"{current_date} 00:00:00"))
-#         day_end = min(end_time, get_datetime(f"{next_day} 00:00:00"))
-#         time_spent = time_diff_in_hours(day_end, day_start)
+    return duration_hours
 
-#         if mark_att and employee:
-#             mark_attendance(employee, current_date)
 
-#         if weekday == 6:  
-#             total_ot += time_spent if not is_travel else time_spent / 2
-#         else:
-#             ot_hours = max(0, time_spent - shift_hours)
-#             total_ot += ot_hours if not is_travel else ot_hours / 2
 
-#         current_date = next_day
-
-#     return total_ot
 
 # def get_employee_overtime(employee, month, year):
-#     total_overtime = 0
+#     total_ot = 0
+#     ot_by_date = {}
 
 #     last_day_of_month = calendar.monthrange(int(year), int(month))[1]
 
@@ -85,10 +81,7 @@
 #             "employee": employee,
 #             "time": ["between", (f"{year}-{month}-01", f"{year}-{month}-{last_day_of_month}")]
 #         },
-#         fields=[
-#             "time", "log_type", "custom_site_in", "custom_site_out",
-#             "custom_travelling_in", "custom_travelling_out"
-#         ],
+#         fields=["time", "log_type", "custom_site_in", "custom_site_out", "custom_travelling_in", "custom_travelling_out"],
 #         order_by="time asc"
 #     )
 
@@ -100,54 +93,131 @@
 #             in_time = log["time"]
 #         elif log["log_type"] == "OUT" and in_time:
 #             paired_logs.append((in_time, log["time"]))
-#             in_time = None
+#             in_time = None  
 
 #     for in_time, out_time in paired_logs:
-#         total_overtime += calculate_ot(in_time, out_time, month, year, is_travel=False, employee=employee)
+#         ot, daily_data = calculate_ot(in_time, out_time, month, year, is_travel=False, employee=employee)
+#         total_ot += ot
+#         for date, hrs in daily_data.items():
+#             ot_by_date[date] = ot_by_date.get(date, 0) + hrs
 
 #     for data in checkins:
 #         if data.get("custom_site_in") and data.get("custom_site_out"):
-#             total_overtime += calculate_ot(
-#                 data["custom_site_in"],
-#                 data["custom_site_out"],
-#                 month, year,
-#                 is_travel=False,
-#                 employee=employee,
-#                 mark_att=True
-#             )
+#             ot, daily_data = calculate_ot(data["custom_site_in"], data["custom_site_out"], month, year, is_travel=False, employee=employee)
+#             total_ot += ot
+#             for date, hrs in daily_data.items():
+#                 ot_by_date[date] = ot_by_date.get(date, 0) + hrs
 
 #         if data.get("custom_travelling_in") and data.get("custom_travelling_out"):
-#             total_overtime += calculate_ot(
-#                 data["custom_travelling_in"],
-#                 data["custom_travelling_out"],
-#                 month, year,
-#                 is_travel=True,
-#                 employee=employee,
-#                 mark_att=True
-#             )
+#             ot, daily_data = calculate_ot(data["custom_travelling_in"], data["custom_travelling_out"], month, year, is_travel=True, employee=employee)
+#             total_ot += ot
+#             for date, hrs in daily_data.items():
+#                 ot_by_date[date] = ot_by_date.get(date, 0) + hrs
 
-#     return total_overtime
+#     return total_ot, ot_by_date
 
-# @frappe.whitelist()
-# def calculate_monthly_ot(employee, month, year):
-#     return get_employee_overtime(employee, month, year)
 
-# import frappe
-from frappe.model.document import Document
-import frappe
-from frappe.utils import getdate, get_datetime, add_days, time_diff_in_hours
-import calendar
+# def calculate_ot(start_time, end_time, selected_month, selected_year, is_travel=False, employee=None):
+#     total_ot = 0
+#     daily_ot_by_date = {}
 
-class OvertimeCalculation(Document):
-	pass
+#     start_time = get_datetime(start_time)
+#     end_time = get_datetime(end_time)
+#     current_date = getdate(start_time)
 
-SHIFT_HOURS = 9  
+#     while current_date <= getdate(end_time):
+#         weekday = current_date.weekday()  
+#         next_day = add_days(current_date, 1)
+
+#         if current_date.month != int(selected_month) or current_date.year != int(selected_year):
+#             current_date = next_day
+#             continue  
+
+#         if (getdate(start_time).month != int(selected_month) or getdate(start_time).year != int(selected_year)) and current_date.day == 1:
+#             day_start = get_datetime(f"{current_date} 00:00:00")
+#         else:
+#             day_start = max(start_time, get_datetime(f"{current_date} 00:00:00"))
+
+#         if (getdate(end_time).month != int(selected_month) or getdate(end_time).year != int(selected_year)) and current_date == getdate(end_time):
+#             day_end = get_datetime(f"{current_date} 23:59:59")
+#         else:
+#             day_end = min(end_time, get_datetime(f"{next_day} 00:00:00"))
+
+#         time_spent = time_diff_in_hours(day_end, day_start)
+
+#         if weekday == 6:  # Sunday
+#             ot = time_spent if not is_travel else time_spent / 2
+#         else:
+#             shift_hours = get_shift_hours(employee, date=current_date)
+#             ot = max(0, time_spent - shift_hours)
+
+#             ot = ot if not is_travel else ot / 2
+
+#         if ot > 0.5:
+#             total_ot += ot
+
+#         date_str = current_date.strftime("%Y-%m-%d")
+#         daily_ot_by_date[date_str] = daily_ot_by_date.get(date_str, 0) + round(ot, 2)
+
+#         current_date = next_day  # Move to next day
+
+#     return total_ot, daily_ot_by_date
+
+
+
+@frappe.whitelist()
+def calculate_monthly_ot(employee, month, year):
+    total_ot, breakdown_dict = get_employee_overtime(employee, month, year)
+
+    from datetime import timedelta
+
+    # Generate all dates in selected month
+    days_in_month = calendar.monthrange(int(year), int(month))[1]
+    all_dates = [f"{year}-{month.zfill(2)}-{str(day).zfill(2)}" for day in range(1, days_in_month + 1)]
+
+    # Fill in OT values for all days (default to 0 if not in breakdown_dict)
+    breakdown = []
+    for date in all_dates:
+        breakdown.append({
+            "date": date,
+            "ot_hours": round(breakdown_dict.get(date, 0), 2)
+        })
+
+    # Add total row
+    breakdown.append({
+        "date": date,
+        "ot_hours": round(total_ot, 2)
+    })
+
+    return {
+        "total_ot": round(total_ot, 2),
+        "breakdown": breakdown
+    }
+
+def accumulate_time(start_time, end_time, time_buckets, category):
+    start = get_datetime(start_time)
+    end = get_datetime(end_time)
+    current_date = getdate(start)
+
+    while current_date <= getdate(end):
+        next_day = add_days(current_date, 1)
+
+        day_start = max(start, get_datetime(f"{current_date} 00:00:00"))
+        day_end = min(end, get_datetime(f"{next_day} 00:00:00"))
+
+        hours = time_diff_in_hours(day_end, day_start)
+
+        time_buckets[str(current_date)][category] += hours
+
+        current_date = next_day
 
 
 def get_employee_overtime(employee, month, year):
-    total_overtime = 0
+    total_ot = 0
+    ot_by_date = defaultdict(float)
+    time_buckets = defaultdict(lambda: {"regular": 0, "site": 0, "travel": 0})
 
-    last_day_of_month = calendar.monthrange(int(year), int(month))[1]  # Returns (weekday, last_day)
+    last_day_of_month = calendar.monthrange(int(year), int(month))[1]
 
     checkins = frappe.get_all(
         "Employee Checkin",
@@ -167,97 +237,62 @@ def get_employee_overtime(employee, month, year):
             in_time = log["time"]
         elif log["log_type"] == "OUT" and in_time:
             paired_logs.append((in_time, log["time"]))
-            in_time = None  
+            in_time = None
 
     for in_time, out_time in paired_logs:
-        total_overtime += calculate_ot(in_time, out_time, month, year, is_travel=False)
+        accumulate_time(in_time, out_time, time_buckets, "regular")
 
     for data in checkins:
         if data.get("custom_site_in") and data.get("custom_site_out"):
-            total_overtime += calculate_ot(data["custom_site_in"], data["custom_site_out"], month, year, is_travel=False)
+            accumulate_time(data["custom_site_in"], data["custom_site_out"], time_buckets, "site")
 
         if data.get("custom_travelling_in") and data.get("custom_travelling_out"):
-            total_overtime += calculate_ot(data["custom_travelling_in"], data["custom_travelling_out"], month, year, is_travel=True)
+            accumulate_time(data["custom_travelling_in"], data["custom_travelling_out"], time_buckets, "travel")
+    days_in_month = calendar.monthrange(int(year), int(month))[1]
+    all_dates = [f"{year}-{month.zfill(2)}-{str(day).zfill(2)}" for day in range(1, days_in_month + 1)]
 
-    return total_overtime
+    for date in all_dates:
+        date_obj = getdate(date)
+        weekday = date_obj.weekday()
 
-def calculate_ot(start_time, end_time, selected_month, selected_year, is_travel=False):
-    total_ot = 0
-    start_time = get_datetime(start_time)
-    end_time = get_datetime(end_time)
+        # Get or default to zeroed buckets
+        buckets = time_buckets.get(date, {"regular": 0, "site": 0, "travel": 0})
 
-    current_date = getdate(start_time)
+        total_time = buckets["regular"] + buckets["site"] + (buckets["travel"] / 2)
 
-    while current_date <= getdate(end_time):
-        weekday = current_date.weekday()  
-        next_day = add_days(current_date, 1)
+        # Print message
+        frappe.msgprint(
+            f"🗓️ <b>{date}</b><br>"
+            f"• Regular: <b>{round(buckets['regular'], 2)} hrs</b><br>"
+            f"• Site: <b>{round(buckets['site'], 2)} hrs</b><br>"
+            f"• Travel: <b>{round(buckets['travel'], 2)} hrs</b><br>"
+            f"• <b>Total considered for OT: {round(total_time, 2)} hrs</b>"
+        )
 
-        if current_date.month != int(selected_month) or current_date.year != int(selected_year):
-            current_date = next_day
-            continue  
+    # for date, buckets in time_buckets.items():
+    #     date_obj = getdate(date)
+    #     weekday = date_obj.weekday()
 
-        if (getdate(start_time).month != int(selected_month) or getdate(start_time).year != int(selected_year)) and current_date.day == 1:
-            day_start = get_datetime(f"{current_date} 00:00:00")
+    #     # Total time worked in the day
+    #     total_time = buckets["regular"] + buckets["site"] + (buckets["travel"] / 2 if weekday != 6 else buckets["travel"])
+
+    #     # Show accumulated hours
+    #     frappe.msgprint(
+    #         f"🗓️ <b>{date}</b><br>"
+    #         f"• Regular: <b>{round(buckets['regular'], 2)} hrs</b><br>"
+    #         f"• Site: <b>{round(buckets['site'], 2)} hrs</b><br>"
+    #         f"• Travel: <b>{round(buckets['travel'], 2)} hrs</b><br>"
+    #         f"• <b>Total considered for OT: {round(total_time, 2)} hrs</b>"
+    #     )
+
+        if weekday == 6:  # Sunday
+            ot_hours = total_time
         else:
-            day_start = max(start_time, get_datetime(f"{current_date} 00:00:00"))
+            shift_hours = get_shift_hours(employee, date)
+            ot_hours = max(0, total_time - shift_hours)
 
-        if (getdate(end_time).month != int(selected_month) or getdate(end_time).year != int(selected_year)) and current_date == getdate(end_time):
-            day_end = get_datetime(f"{current_date} 23:59:59")
-        else:
-            day_end = min(end_time, get_datetime(f"{next_day} 00:00:00"))
+        if ot_hours > 0.5:
+            ot_by_date[date] += round(ot_hours, 2)
+            total_ot += round(ot_hours, 2)
 
-        time_spent = time_diff_in_hours(day_end, day_start)
-
-        if weekday == 6:  
-            total_ot += time_spent if not is_travel else time_spent / 2  # Full OT for normal/site work, Half for Travel
-        else:  
-            ot_hours = max(0, time_spent - SHIFT_HOURS)
-            total_ot += ot_hours if not is_travel else ot_hours / 2  # Full OT for normal/site work, Half for Travel
-
-        current_date = next_day  # Move to next day
-
-    return total_ot
-
-# def get_employee_overtime(employee, month, year):
-#     total_overtime = 0
-
-#     # Fetch all check-in/check-out logs for the employee
-#     checkins = frappe.get_all(
-#         "Employee Checkin",
-#         filters={
-#             "employee": employee,
-#             "time": ["between", (f"{year}-{month}-01", f"{year}-{month}-31")]
-#         },
-#         fields=["time", "log_type", "custom_site_in", "custom_site_out", "custom_travelling_in", "custom_travelling_out"],
-#         order_by="time asc"
-#     )
-
-#     paired_logs = []
-#     in_time = None
-
-#     # Pair IN/OUT logs
-#     for log in checkins:
-#         if log["log_type"] == "IN":
-#             in_time = log["time"]
-#         elif log["log_type"] == "OUT" and in_time:
-#             paired_logs.append((in_time, log["time"]))
-#             in_time = None  # Reset after pairing
-
-#     # Calculate Normal Check-in/Check-out OT
-#     for in_time, out_time in paired_logs:
-#         total_overtime += calculate_ot(in_time, out_time, month, year, is_travel=False)
-
-#     # Site OT Calculation
-#     for data in checkins:
-#         if data.get("custom_site_in") and data.get("custom_site_out"):
-#             total_overtime += calculate_ot(data["custom_site_in"], data["custom_site_out"], month, year, is_travel=False)
-
-#         # Travel OT Calculation (half OT)
-#         if data.get("custom_travelling_in") and data.get("custom_travelling_out"):
-#             total_overtime += calculate_ot(data["custom_travelling_in"], data["custom_travelling_out"], month, year, is_travel=True)
-
-#     return total_overtime
-
-@frappe.whitelist()
-def calculate_monthly_ot(employee, month, year):
-    return get_employee_overtime(employee, month, year)
+    return total_ot, ot_by_date
